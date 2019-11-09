@@ -424,7 +424,94 @@ ggplot(hlDf,aes(x=pPred,y=y/count,ymin=y/count-2*se.fit,ymax=y/count+2*se.fit)) 
 
 We see that our predictors fall close to the line. 
 
+### Model 4 - Srep BIC Model
+
+**ROC Curve**
+
+The ROC Curve helps measure true positives and true negative. A high AUC or area under the curve tells us the model is predicting well. 
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+targethat<-predict(m4,type="response")
+g<-roc(TARGET_FLAG~targethat,data=InsTrain)
+plot(g)
+```
+ 
+The AUC value of `r round(g$auc,2)`, tells us this model predicted values are acurate.
+
+**Confusion Matrix**
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+targethat[targethat<0.5]<-0
+targethat[targethat>=0.5]<-1
+table(targethat,InsTrain$TARGET_FLAG)
+```
+
+**Create a binned diagnostic plot of residuals vs prediction**
+There are definite patterns here, which bear investigating.
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+InsMut <- mutate(InsTrain, Residuals = residuals(m4), linPred = predict(m4))
+grpIns <- group_by(InsMut, cut(linPred, breaks=unique(quantile(linPred, (0:25/26)))))
+diagIns <- summarise(grpIns, Residuals = mean(Residuals), linPred = mean(linPred))
+plot(Residuals ~ linPred, data = diagIns, xlab="Linear Predictor")
+```
+
+**Plot leverages.**
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+halfnorm(hatvalues(m4))
+```
+
+We don't see any strong outliers with the leverage plot.  The points identified (3608,5686) are essentially in the plot of the line formed, so they are not likely pulling our model in any direction.
+
+**Plot Goodness of fit**
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+linPred <- predict(m4)
+InsMut <- mutate(InsTrain, predProb = predict(m4, type = "response"))
+grpIns <- group_by(InsMut, cut(linPred, breaks = unique(quantile(linPred, (0:25)/26))))
+#hosmer-lemeshow stat
+hlDf <- summarise(grpIns, y= sum(TARGET_FLAG), pPred=mean(predProb), count = n())
+hlDf <- mutate(hlDf, se.fit=sqrt(pPred * (1-(pPred)/count)))
+ggplot(hlDf,aes(x=pPred,y=y/count,ymin=y/count-2*se.fit,ymax=y/count+2*se.fit)) +
+    geom_point()+geom_linerange(color=grey(0.75))+geom_abline(intercept=0,slope=1) +
+    xlab("Predicted Probability") +
+    ylab("Observed Proportion")
+```
+
+We see that our predictors fall close to the line.
+
+## Pick the best regression model
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+m1AIC <- AIC(m1)
+m1BIC <- BIC(m1)
+m2AIC <- AIC(m2)
+m2BIC <- BIC(m2)
+m3AIC <- AIC(m3)
+m3BIC <- BIC(m3)
+m4AIC <- AIC(m4)
+m4BIC <- BIC(m4)
+```
+| Metric    | Model 1     | Model 2      | Model 3    | Model 4    |
+| --------- | ----------- | -----------  | ---------- | ---------- |
+| AIC       | `r m1AIC`   | `r m2AIC`    | `r m3AIC`  | `r m4AIC`  |
+| BIC       | `r m1BIC`   | `r m2BIC`    | `r m3BIC`  | `r m4BIC`  |
+
+
 ##TARGET_AMT Modeling
+
+**Model 1: all predictors**
+
+Same as with the logistic model before, we start with a model that includes all predictors
+
+```{r}
+InsTrain<-InsTrain[ , !(names(InsTrain) %in% c('predicted_m3','target_m4'))]
+lm1<-lm(TARGET_AMT~.,InsTrain)
+summary(lm1)
+plot(lm1)
+```
+
 
 ### Select Model
 
