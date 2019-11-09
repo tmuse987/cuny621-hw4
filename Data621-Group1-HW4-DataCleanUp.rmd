@@ -200,14 +200,229 @@ summary(m1)
 
 From the model's summary itself we see that there are several predictors which are not statistically relevant, which suggestes a simpler model should be possible.We build a second model without these the non-significant predictors.
 
+**Model 2: reduced predictors**
+
 ```{r}
-m2<-glm(TARGET_FLAG~.-INDEX-TARGET_AMT-AGE-INCOME-JOB-BLUEBOOK-CAR_AGE,data=InsTrain,family="binomial"(link="logit"))
+m2<-glm(TARGET_FLAG~.-INDEX-TARGET_AMT-AGE-INCOME-JOB-BLUEBOOK-CAR_AGE-RED_CAR,data=InsTrain,family="binomial"(link="logit"))
 summary(m2)
 ```
 
-### Select Model
+The new model has a slightly higher AIC which would tells us the first model is slightly less complex.
 
+### AIC Step Method Model 3
+
+Another way of selecting which predictors to use in the model is by calculating the AIC of the model. This metric is similar to the adjusted R-square of a model in that it penalizes models with more predictors over simpler model with few predictors. We use Stepwise function in r to find the lowest AIC with different predictors.
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+m3 <- step(m1)
+summary(m3)
+```
+
+This reduces the predictors used tp 25 from 30. The AIC improvesfrom 7482.66 (our original general model) to 7478.5, and we also benefit by having a simpler model less prone to overfitting.
+
+Also, the predictors in the model now are all signficant (under 0.05 pr level) and all but one under .02 or very significant. Which is much improved over the first model.
+
+### BIC Method  Model 4
+
+To determine the number of predictors and which predictors to be used we will use the Bayesian Information Criterion (BIC).
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+InsTrainM4<-InsTrain[ , !(names(InsTrain) %in% c('INDEX','TARGET_AMT'))]
+regfit.full <- regsubsets(factor(TARGET_FLAG) ~ ., data=InsTrainM4)
+par(mfrow = c(1,2))
+reg.summary <- summary(regfit.full)
+plot(reg.summary$bic, xlab="Number of Predictors", ylab="BIC", type="l", main="Subset Selection Using BIC")
+BIC_num <- which.min(reg.summary$bic) 
+points(BIC_num, reg.summary$bic[BIC_num], col="red", cex=2, pch=20)
+
+```
+
+```{r echo=FALSE,message=FALSE,warning=FALSE,fig.height=4,fig.width=8}
+plot(regfit.full, scale="bic", main="Predictors vs. BIC")
+```
+
+The plot on the right shows that the number of predictors with the lowest BIC are `PARENT` , `HOMEVAL`, `CAR_USE`, 'CAR_TYPE', 'REVOKED', 'MVR_PTS' and 'URBANICITY'. We will use those predictors to build the next model
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+m4 <- glm(TARGET_FLAG ~ PARENT1 + HOME_VAL + CAR_USE + CAR_TYPE + REVOKED + MVR_PTS + URBANICITY, family=binomial, data = InsTrain)
+InsTrain$predicted_m3<- predict(m4, InsTrain, type='response')
+InsTrain$target_m4$target <- ifelse(InsTrain$predicted_m4>0.5, 1, 0)
+pander::pander(summary(m4))
+```
+
+### Select Model
 ### Compare Model Statistics
+
+### Model 1 - General Model
+
+**ROC Curve**
+
+The ROC Curve helps measure true positives and true negative. A high AUC or area under the curve tells us the model is predicting well. 
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+targethat<-predict(m1,type="response")
+g<-roc(TARGET_FLAG~targethat,data=InsTrain)
+plot(g)
+```
+ 
+The AUC value of `r round(g$auc,2)`, tells us this model predicted values are acurate.
+
+**Confusion Matrix**
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+targethat[targethat<0.5]<-0
+targethat[targethat>=0.5]<-1
+table(targethat,InsTrain$TARGET_FLAG)
+```
+
+**Create a binned diagnostic plot of residuals vs prediction**
+There are definite patterns here, which bear investigating.
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+InsMut <- mutate(InsTrain, Residuals = residuals(m1), linPred = predict(m1))
+grpIns <- group_by(InsMut, cut(linPred, breaks=unique(quantile(linPred, (0:25/26)))))
+diagIns <- summarise(grpIns, Residuals = mean(Residuals), linPred = mean(linPred))
+plot(Residuals ~ linPred, data = diagIns, xlab="Linear Predictor")
+```
+
+**Plot leverages.**
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+halfnorm(hatvalues(m1))
+```
+
+We don't see any strong outliers with the leverage plot.  The points identified (3608,5686) are essentially in the plot of the line formed, so they are not likely pulling our model in any direction.
+
+**Plot Goodness of fit**
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+linPred <- predict(m1)
+InsMut <- mutate(InsTrain, predProb = predict(m1, type = "response"))
+grpIns <- group_by(InsMut, cut(linPred, breaks = unique(quantile(linPred, (0:25)/26))))
+#hosmer-lemeshow stat
+hlDf <- summarise(grpIns, y= sum(TARGET_FLAG), pPred=mean(predProb), count = n())
+hlDf <- mutate(hlDf, se.fit=sqrt(pPred * (1-(pPred)/count)))
+ggplot(hlDf,aes(x=pPred,y=y/count,ymin=y/count-2*se.fit,ymax=y/count+2*se.fit)) +
+    geom_point()+geom_linerange(color=grey(0.75))+geom_abline(intercept=0,slope=1) +
+    xlab("Predicted Probability") +
+    ylab("Observed Proportion")
+```
+
+We see that our predictors fall close to the line. 
+
+### Model 2 - Reduced General Model
+
+**ROC Curve**
+
+The ROC Curve helps measure true positives and true negative. A high AUC or area under the curve tells us the model is predicting well. 
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+targethat<-predict(m2,type="response")
+g<-roc(TARGET_FLAG~targethat,data=InsTrain)
+plot(g)
+```
+ 
+The AUC value of `r round(g$auc,2)`, tells us this model predicted values are acurate.
+
+**Confusion Matrix**
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+targethat[targethat<0.5]<-0
+targethat[targethat>=0.5]<-1
+table(targethat,InsTrain$TARGET_FLAG)
+```
+
+**Create a binned diagnostic plot of residuals vs prediction**
+There are definite patterns here, which bear investigating.
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+InsMut <- mutate(InsTrain, Residuals = residuals(m2), linPred = predict(m2))
+grpIns <- group_by(InsMut, cut(linPred, breaks=unique(quantile(linPred, (0:25/26)))))
+diagIns <- summarise(grpIns, Residuals = mean(Residuals), linPred = mean(linPred))
+plot(Residuals ~ linPred, data = diagIns, xlab="Linear Predictor")
+```
+
+**Plot leverages.**
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+halfnorm(hatvalues(m2))
+```
+
+We don't see any strong outliers with the leverage plot.  The points identified (3608,5686) are essentially in the plot of the line formed, so they are not likely pulling our model in any direction.
+
+**Plot Goodness of fit**
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+linPred <- predict(m2)
+InsMut <- mutate(InsTrain, predProb = predict(m2, type = "response"))
+grpIns <- group_by(InsMut, cut(linPred, breaks = unique(quantile(linPred, (0:25)/26))))
+#hosmer-lemeshow stat
+hlDf <- summarise(grpIns, y= sum(TARGET_FLAG), pPred=mean(predProb), count = n())
+hlDf <- mutate(hlDf, se.fit=sqrt(pPred * (1-(pPred)/count)))
+ggplot(hlDf,aes(x=pPred,y=y/count,ymin=y/count-2*se.fit,ymax=y/count+2*se.fit)) +
+    geom_point()+geom_linerange(color=grey(0.75))+geom_abline(intercept=0,slope=1) +
+    xlab("Predicted Probability") +
+    ylab("Observed Proportion")
+```
+
+We see that our predictors fall close to the line. 
+
+### Model 3 - Srep AIC Model
+
+**ROC Curve**
+
+The ROC Curve helps measure true positives and true negative. A high AUC or area under the curve tells us the model is predicting well. 
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+targethat<-predict(m3,type="response")
+g<-roc(TARGET_FLAG~targethat,data=InsTrain)
+plot(g)
+```
+ 
+The AUC value of `r round(g$auc,2)`, tells us this model predicted values are acurate.
+
+**Confusion Matrix**
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+targethat[targethat<0.5]<-0
+targethat[targethat>=0.5]<-1
+table(targethat,InsTrain$TARGET_FLAG)
+```
+
+**Create a binned diagnostic plot of residuals vs prediction**
+There are definite patterns here, which bear investigating.
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+InsMut <- mutate(InsTrain, Residuals = residuals(m3), linPred = predict(m3))
+grpIns <- group_by(InsMut, cut(linPred, breaks=unique(quantile(linPred, (0:25/26)))))
+diagIns <- summarise(grpIns, Residuals = mean(Residuals), linPred = mean(linPred))
+plot(Residuals ~ linPred, data = diagIns, xlab="Linear Predictor")
+```
+
+**Plot leverages.**
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+halfnorm(hatvalues(m3))
+```
+
+We don't see any strong outliers with the leverage plot.  The points identified (3608,5686) are essentially in the plot of the line formed, so they are not likely pulling our model in any direction.
+
+**Plot Goodness of fit**
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+linPred <- predict(m3)
+InsMut <- mutate(InsTrain, predProb = predict(m3, type = "response"))
+grpIns <- group_by(InsMut, cut(linPred, breaks = unique(quantile(linPred, (0:25)/26))))
+#hosmer-lemeshow stat
+hlDf <- summarise(grpIns, y= sum(TARGET_FLAG), pPred=mean(predProb), count = n())
+hlDf <- mutate(hlDf, se.fit=sqrt(pPred * (1-(pPred)/count)))
+ggplot(hlDf,aes(x=pPred,y=y/count,ymin=y/count-2*se.fit,ymax=y/count+2*se.fit)) +
+    geom_point()+geom_linerange(color=grey(0.75))+geom_abline(intercept=0,slope=1) +
+    xlab("Predicted Probability") +
+    ylab("Observed Proportion")
+```
+
+We see that our predictors fall close to the line. 
 
 ##TARGET_AMT Modeling
 
