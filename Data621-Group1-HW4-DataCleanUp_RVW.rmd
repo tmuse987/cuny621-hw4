@@ -146,18 +146,21 @@ As revealed earlier there were a list of columns that were factors that should b
 
 #TJ explanation
 c<-c('INCOME','HOME_VAL','BLUEBOOK','OLDCLAIM', 'JOB')
-AInsTrain<-InsTrain
+older_instrain <- InsTrain
+new_InsTrain<-InsTrain
+
+older_instrain[,colnames(older_instrain) %in% c]<-data.frame(sapply(older_instrain[,colnames(older_instrain) %in% c], function(x) as.numeric(x)))
 if(c %in% colnames(AInsTrain)){
 
-  AInsTrain[1,]
+  new_InsTrain[1,]
   # https://r.789695.n4.nabble.com/Converting-dollar-value-factors-to-numeric-td2130536.html
-  # This way negative quantities and numbers without dollar signs are handled correctly.
-  #as.numeric(sub('\\$','',as.character(x)))
+  # This way negative quantities and numbers without dollar signs are handled correctly. 
   
-  AInsTrain[,c] <- sapply(AInsTrain[,(colnames(AInsTrain) %in% c)], 
+  new_InsTrain[,c] <- sapply(new_InsTrain[,(colnames(new_InsTrain) %in% c)], 
                          function(x) as.numeric(gsub('[$,]','',as.character(x))))
-  AInsTrain[,(c)]
-  AInsTrain[1,]
+  new_InsTrain[,(c)]
+  older_instrain[1,]
+  new_InsTrain[1,]
 }
 ```
 
@@ -165,10 +168,10 @@ if(c %in% colnames(AInsTrain)){
 # TJ edit
 c<-c('INCOME','HOME_VAL','BLUEBOOK','OLDCLAIM', 'JOB')
 
-if(c %in% colnames(AInsTrain)){
+if(c %in% colnames(InsTrain)){
   
-  glimpse(InsTrain[,colnames(InsTrain) %in% c])
-  InsTrain[,c] <- sapply(InsTrain[,(colnames(InsTrain) %in% c)], 
+  glimpse(InsTrain[,(c)])
+  InsTrain[,c] <- sapply(InsTrain[,(c)], 
                          function(x) as.numeric(gsub('[$,]','',as.character(x))))
   
   glimpse(InsTrain[,(c)])
