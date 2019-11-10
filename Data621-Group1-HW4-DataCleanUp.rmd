@@ -156,8 +156,6 @@ Both boxplot and summary stats with the square root transform of Home_val and In
 ```{r}
 r <- colnames(InsTrain)[ apply(InsTrain, 2, anyNA)]
 
-par(mar=c(9.5,3.5,.5,.5))
-
 boxplot(InsTrain$AGE,InsTrain$YOJ, InsTrain$CAR_AGE, sqrt(InsTrain$INCOME), sqrt(InsTrain$HOME_VAL), InsTrain$JOB,names = r,las = 2,col = c("orange","red", "blue", "yellow", "brown", "green"))
 
 describe(subset(InsTrain, select =r))
@@ -237,14 +235,14 @@ points(BIC_num, reg.summary$bic[BIC_num], col="red", cex=2, pch=20)
 
 ```
 
-```{r echo=FALSE,message=FALSE,warning=FALSE,fig.height=4,fig.width=8}
-plot(regfit.full, scale="bic", main="Predictors vs. BIC")
+```{r echo=FALSE,message=FALSE,warning=FALSE,fig.height=7,fig.width=8}
+plot(regfit.full, scale="bic", main="Predictors vs. BIC", asp = 10)
 ```
 
-The plot on the right shows that the number of predictors with the lowest BIC are `PARENT` , `HOMEVAL`, `CAR_USE`, 'CAR_TYPE', 'REVOKED', 'MVR_PTS' and 'URBANICITY'. We will use those predictors to build the next model
+The plot on the right shows that the number of predictors with the lowest BIC are `PARENT` , `HOMEVAL`, `CAR_USE`, 'CAR_TYPE', 'REVOKED', 'MVR_PTS', 'CAR_AGE' and 'URBANICITY'. We will use those predictors to build the next model
 
 ```{r echo=FALSE,message=FALSE,warning=FALSE}
-m4 <- glm(TARGET_FLAG ~ PARENT1 + HOME_VAL + CAR_USE + CAR_TYPE + REVOKED + MVR_PTS + URBANICITY, family=binomial, data = InsTrain)
+m4 <- glm(TARGET_FLAG ~ PARENT1 + HOME_VAL + CAR_USE + CAR_TYPE + REVOKED + MVR_PTS + URBANICITY + CAR_AGE, family=binomial, data = InsTrain)
 InsTrain$predicted_m3<- predict(m4, InsTrain, type='response')
 InsTrain$target_m4$target <- ifelse(InsTrain$predicted_m4>0.5, 1, 0)
 pander::pander(summary(m4))
@@ -283,6 +281,7 @@ InsMut <- mutate(InsTrain, Residuals = residuals(m1), linPred = predict(m1))
 grpIns <- group_by(InsMut, cut(linPred, breaks=unique(quantile(linPred, (0:25/26)))))
 diagIns <- summarise(grpIns, Residuals = mean(Residuals), linPred = mean(linPred))
 plot(Residuals ~ linPred, data = diagIns, xlab="Linear Predictor")
+abline(h = 0, lty = 2, col = "darkorange", lwd = 2)
 ```
 
 **Plot leverages.**
@@ -340,6 +339,7 @@ InsMut <- mutate(InsTrain, Residuals = residuals(m2), linPred = predict(m2))
 grpIns <- group_by(InsMut, cut(linPred, breaks=unique(quantile(linPred, (0:25/26)))))
 diagIns <- summarise(grpIns, Residuals = mean(Residuals), linPred = mean(linPred))
 plot(Residuals ~ linPred, data = diagIns, xlab="Linear Predictor")
+abline(h = 0, lty = 2, col = "darkorange", lwd = 2)
 ```
 
 **Plot leverages.**
@@ -397,6 +397,7 @@ InsMut <- mutate(InsTrain, Residuals = residuals(m3), linPred = predict(m3))
 grpIns <- group_by(InsMut, cut(linPred, breaks=unique(quantile(linPred, (0:25/26)))))
 diagIns <- summarise(grpIns, Residuals = mean(Residuals), linPred = mean(linPred))
 plot(Residuals ~ linPred, data = diagIns, xlab="Linear Predictor")
+abline(h = 0, lty = 2, col = "darkorange", lwd = 2)
 ```
 
 **Plot leverages.**
@@ -454,12 +455,14 @@ InsMut <- mutate(InsTrain, Residuals = residuals(m4), linPred = predict(m4))
 grpIns <- group_by(InsMut, cut(linPred, breaks=unique(quantile(linPred, (0:25/26)))))
 diagIns <- summarise(grpIns, Residuals = mean(Residuals), linPred = mean(linPred))
 plot(Residuals ~ linPred, data = diagIns, xlab="Linear Predictor")
+abline(h = 0, lty = 2, col = "darkorange", lwd = 2)
 ```
 
 **Plot leverages.**
 
 ```{r echo=FALSE,message=FALSE,warning=FALSE}
 halfnorm(hatvalues(m4))
+
 ```
 
 We don't see any strong outliers with the leverage plot.  The points identified (3608,5686) are essentially in the plot of the line formed, so they are not likely pulling our model in any direction.
@@ -508,7 +511,8 @@ Same as with the logistic model before, we start with a model that includes all 
 ```{r}
 InsTrain<-InsTrain[ , !(names(InsTrain) %in% c('predicted_m3','target_m4'))]
 lm1<-lm(TARGET_AMT~.,InsTrain)
-summary(lm1)
+summary
+par(mfrow = c(2,2))
 plot(lm1)
 ```
 
