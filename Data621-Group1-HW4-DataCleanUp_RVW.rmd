@@ -32,9 +32,9 @@ library(pROC)
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
 #Get the data. Added na.strings to add na for records that have a blank value
-#TJ
-InsTrain <- read.csv("insurance_training_data.csv",na.strings="",header=TRUE, stringsAsFactors=FALSE)
-InsEval <- read.csv("insurance-evaluation-data.csv",na.strings="",header=TRUE, stringsAsFactors=FALSE)
+
+InsTrain <- read.csv("insurance_training_data.csv",na.strings="",header=TRUE)
+InsEval <- read.csv("insurance-evaluation-data.csv",na.strings="",header=TRUE)
 InsEval <- subset(InsEval, select=-c(TARGET_FLAG,TARGET_AMT))
 ```
 
@@ -122,11 +122,12 @@ A glimpse of the data shows that the following columns should be integers and no
 * HOME_VAL
 * BLUEBOOK
 * OLDCLAIM
-* JOB
 
 We display and view data with all cases and only complete cases
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
+#TJ
+cat(colnames(InsTrain[ sapply(InsTrain, is.factor)]), "\n\n")
 glimpse(InsTrain)
 ```
 
@@ -138,55 +139,42 @@ sapply(InsTrain, function(x) round(sum(is.na(x))/nrow(InsTrain)*100,1))
 
 ## Data Preperation
 
-As revealed earlier there were a list of columns that were factors that should be integers. We start by 
-
-
+As revealed earlier there were a list of columns that we factors that should be integers. We start by converting the columns to numeric.
 
 ```{r}
-
-#TJ explanation
-c<-c('INCOME','HOME_VAL','BLUEBOOK','OLDCLAIM', 'JOB')
-older_instrain <- InsTrain
-new_InsTrain<-InsTrain
-
-older_instrain[,colnames(older_instrain) %in% c]<-data.frame(sapply(older_instrain[,colnames(older_instrain) %in% c], function(x) as.numeric(x)))
-if(c %in% colnames(AInsTrain)){
-
-  new_InsTrain[1,]
-  # https://r.789695.n4.nabble.com/Converting-dollar-value-factors-to-numeric-td2130536.html
-  # This way negative quantities and numbers without dollar signs are handled correctly. 
-  
-  new_InsTrain[,c] <- sapply(new_InsTrain[,(colnames(new_InsTrain) %in% c)], 
-                         function(x) as.numeric(gsub('[$,]','',as.character(x))))
-  new_InsTrain[,(c)]
-  older_instrain[1,]
-  new_InsTrain[1,]
-}
-```
-
-```{r}
-# TJ edit
-c<-c('INCOME','HOME_VAL','BLUEBOOK','OLDCLAIM', 'JOB')
+# TJ
+c<-c('INCOME','HOME_VAL','BLUEBOOK','OLDCLAIM')
 
 if(c %in% colnames(InsTrain)){
   
   glimpse(InsTrain[,(c)])
   InsTrain[,c] <- sapply(InsTrain[,(c)], 
-                         function(x) as.numeric(gsub('[$,]','',as.character(x))))
+                         function(x) as.integer(gsub('[$,]','',as.character(x))))
   
   glimpse(InsTrain[,(c)])
+  
+} else {
+  
+  cat("Please review your selection of columns:", c)
+  
 }
-
 ```
 
 Both boxplot and summary stats with the square root transform of Home_val and Income to confirm we can use median or mean values to replace NA values if we chose.
 
 ```{r}
-r <- colnames(InsTrain)[ apply(InsTrain, 2, anyNA)]
+#TJ
+# TODO Analysis on how many 0s
+# FINAL LIST: AGE YOJ INCOME HOME_VAL CAR_AGE
+# JOB is char
+# INCOME AND HOME_VAL have 0's, impossible so convert to NA
 
-par(mar=c(9.5,3.5,.5,.5))
+InsTrain$INCOME <- na_if(InsTrain$INCOME, 0)
+InsTrain$HOME_VAL <- na_if(InsTrain$HOME_VAL, 0)
 
-boxplot(InsTrain$AGE,InsTrain$YOJ, InsTrain$CAR_AGE, sqrt(InsTrain$INCOME), sqrt(InsTrain$HOME_VAL), InsTrain$JOB,names = r,las = 2,col = c("orange","red", "blue", "yellow", "brown", "green"))
+r <- colnames(InsTrain[ sapply(InsTrain, function(x) return(anyNA(x) && is.integer(x)))])
+
+boxplot(InsTrain[,r],names = r,las = 2,col = c("orange","red", "blue", "yellow", "brown", "green"))
 
 describe(subset(InsTrain, select =r))
 
@@ -194,14 +182,28 @@ describe(subset(InsTrain, select =r))
 
 We next replace all NA values with mean values for cases that are missing values and rerun sapply function to confirm there are no longer any missing values.
 
+
 ```{r}
-
-InsTrain[,colnames(InsTrain) %in% r]<-data.frame(sapply(InsTrain[,colnames(InsTrain) %in% r],
-      function(x) ifelse(is.na(x),
-            mean(x, na.rm = TRUE),
-            x)))
-
 sapply(InsTrain, function(x) round(sum(is.na(x))/nrow(InsTrain)*100,1))
+
+
+#TJ
+InsTrain[,r] <- replace_na(InsTrain[,r], as.list(colMeans(InsTrain[,r], na.rm = TRUE)))
+
+
+#TJ jobs should be analyzed more before imputing
+Jobs <- summary(InsTrain$JOB)
+print(Jobs)
+JobsMode <- Jobs[which.max(Jobs)] 
+ifelse(JobsMode[[1]]  / nrow(InsTrain) > 2.5*(Jobs["NA's"][[1]] / nrow(InsTrain)), 
+       InsTrain$JOB <- replace_na(InsTrain$JOB, names(JobsMode)),
+       na.omit(InsTrain)
+       )
+summary(InsTrain$JOB)
+```
+
+
+```{r}
 vis_miss(InsTrain)
 describe(subset(InsTrain, select =r))
 #View(InsTrain)
@@ -226,7 +228,7 @@ m1<-glm(TARGET_FLAG~.-INDEX-TARGET_AMT,data=InsTrain,family="binomial"(link="log
 summary(m1)
 ```
 
-From the model's summary itself we see that there are several predictors which are not statistically relevant, which suggestes a simpler model should be possible.We build a second model without these the non-significant predictors.
+From the model's summary itself we see that there are several predictors which are not statistically relevant, which suggestes a simpler model should be possible. We build a second model without these the non-significant predictors.
 
 **Model 2: reduced predictors**
 
@@ -246,7 +248,7 @@ m3 <- step(m1)
 summary(m3)
 ```
 
-This reduces the predictors used tp 25 from 30. The AIC improvesfrom 7482.66 (our original general model) to 7478.5, and we also benefit by having a simpler model less prone to overfitting.
+This reduces the predictors used to 25 from 30. The AIC is reduced from 7401.13 (our original general model) to 7393.7, just slightly and but we benefit by having a simpler model less prone to overfitting.
 
 Also, the predictors in the model now are all signficant (under 0.05 pr level) and all but one under .02 or very significant. Which is much improved over the first model.
 
@@ -265,14 +267,14 @@ points(BIC_num, reg.summary$bic[BIC_num], col="red", cex=2, pch=20)
 
 ```
 
-```{r echo=FALSE,message=FALSE,warning=FALSE,fig.height=4,fig.width=8}
-plot(regfit.full, scale="bic", main="Predictors vs. BIC")
+```{r echo=FALSE,message=FALSE,warning=FALSE,fig.height=7,fig.width=8}
+plot(regfit.full, scale="bic", main="Predictors vs. BIC", asp = 10)
 ```
 
-The plot on the right shows that the number of predictors with the lowest BIC are `PARENT` , `HOMEVAL`, `CAR_USE`, 'CAR_TYPE', 'REVOKED', 'MVR_PTS' and 'URBANICITY'. We will use those predictors to build the next model
+The plot on the right shows that the number of predictors with the lowest BIC are `PARENT` , `HOMEVAL`, `CAR_USE`, 'CAR_TYPE', 'REVOKED', 'MVR_PTS', 'CAR_AGE' and 'URBANICITY'. We will use those predictors to build the next model
 
 ```{r echo=FALSE,message=FALSE,warning=FALSE}
-m4 <- glm(TARGET_FLAG ~ PARENT1 + HOME_VAL + CAR_USE + CAR_TYPE + REVOKED + MVR_PTS + URBANICITY, family=binomial, data = InsTrain)
+m4 <- glm(TARGET_FLAG ~ PARENT1 + HOME_VAL + CAR_USE + CAR_TYPE + REVOKED + MVR_PTS + URBANICITY + CAR_AGE, family=binomial, data = InsTrain)
 InsTrain$predicted_m3<- predict(m4, InsTrain, type='response')
 InsTrain$target_m4$target <- ifelse(InsTrain$predicted_m4>0.5, 1, 0)
 pander::pander(summary(m4))
@@ -311,6 +313,7 @@ InsMut <- mutate(InsTrain, Residuals = residuals(m1), linPred = predict(m1))
 grpIns <- group_by(InsMut, cut(linPred, breaks=unique(quantile(linPred, (0:25/26)))))
 diagIns <- summarise(grpIns, Residuals = mean(Residuals), linPred = mean(linPred))
 plot(Residuals ~ linPred, data = diagIns, xlab="Linear Predictor")
+abline(h = 0, lty = 2, col = "darkorange", lwd = 2)
 ```
 
 **Plot leverages.**
@@ -368,6 +371,7 @@ InsMut <- mutate(InsTrain, Residuals = residuals(m2), linPred = predict(m2))
 grpIns <- group_by(InsMut, cut(linPred, breaks=unique(quantile(linPred, (0:25/26)))))
 diagIns <- summarise(grpIns, Residuals = mean(Residuals), linPred = mean(linPred))
 plot(Residuals ~ linPred, data = diagIns, xlab="Linear Predictor")
+abline(h = 0, lty = 2, col = "darkorange", lwd = 2)
 ```
 
 **Plot leverages.**
@@ -425,6 +429,7 @@ InsMut <- mutate(InsTrain, Residuals = residuals(m3), linPred = predict(m3))
 grpIns <- group_by(InsMut, cut(linPred, breaks=unique(quantile(linPred, (0:25/26)))))
 diagIns <- summarise(grpIns, Residuals = mean(Residuals), linPred = mean(linPred))
 plot(Residuals ~ linPred, data = diagIns, xlab="Linear Predictor")
+abline(h = 0, lty = 2, col = "darkorange", lwd = 2)
 ```
 
 **Plot leverages.**
@@ -482,12 +487,14 @@ InsMut <- mutate(InsTrain, Residuals = residuals(m4), linPred = predict(m4))
 grpIns <- group_by(InsMut, cut(linPred, breaks=unique(quantile(linPred, (0:25/26)))))
 diagIns <- summarise(grpIns, Residuals = mean(Residuals), linPred = mean(linPred))
 plot(Residuals ~ linPred, data = diagIns, xlab="Linear Predictor")
+abline(h = 0, lty = 2, col = "darkorange", lwd = 2)
 ```
 
 **Plot leverages.**
 
 ```{r echo=FALSE,message=FALSE,warning=FALSE}
 halfnorm(hatvalues(m4))
+
 ```
 
 We don't see any strong outliers with the leverage plot.  The points identified (3608,5686) are essentially in the plot of the line formed, so they are not likely pulling our model in any direction.
@@ -536,7 +543,8 @@ Same as with the logistic model before, we start with a model that includes all 
 ```{r}
 InsTrain<-InsTrain[ , !(names(InsTrain) %in% c('predicted_m3','target_m4'))]
 lm1<-lm(TARGET_AMT~.,InsTrain)
-summary(lm1)
+summary
+par(mfrow = c(2,2))
 plot(lm1)
 ```
 
