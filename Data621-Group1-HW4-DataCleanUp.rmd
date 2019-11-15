@@ -531,6 +531,11 @@ As expected this model isn't any better than the first one. It is simpler, but i
 
 **Model 3: weighted coefficients**
 
+```{r}
+lm3<-rlm(TARGET_AMT~.-TARGET_FLAG,InsTrain)
+summary(lm3)
+```
+
 ### Select Model
 
 ### Compare Model Statistics
