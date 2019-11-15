@@ -4,11 +4,11 @@ author: Tommy Jenkins, Violeta Stoyanova, Todd Weigel, Peter Kowalchuk, Eleanor 
   Anthony Pagan
 date: "November 15, 2019"
 output:
+  word_document: default
+  pdf_document: default
   html_document:
     number_sections: yes
     theme: paper
-  pdf_document: default
-  word_document: default
 always_allow_html: yes
 ---
 
@@ -633,8 +633,6 @@ write.csv(eval_p,"predicted_eval_values_Target_Flag.csv")
 # APPENDIX
 
 **Code used in analysis**
-
-https://raw.githubusercontent.com/tmuse987/cuny621-hw4/master/Data621-Group1-HW4-Final.Rmd
 
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
 require(knitr)
