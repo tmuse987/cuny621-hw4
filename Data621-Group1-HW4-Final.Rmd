@@ -1,12 +1,14 @@
 ---
 title: 'Data 621 Homework 3: Insurance'
-author: "Tommy Jenkins, Violeta Stoyanova, Todd Weigel, Peter Kowalchuk, Eleanor R-Secoquian, Anthony Pagan"
+author: Tommy Jenkins, Violeta Stoyanova, Todd Weigel, Peter Kowalchuk, Eleanor R-Secoquian,
+  Anthony Pagan
 date: "November 6, 2019"
 output:
   html_document:
     number_sections: yes
     theme: paper
   pdf_document: default
+  word_document: default
 always_allow_html: yes
 ---
 
@@ -547,6 +549,8 @@ This model shows an adj $R^2$ as 0.28, and F-statistic of 87.86 with a small p-v
 ```{r}
 lm2 <- lm(TARGET_AMT ~ +AGE +EDUCATION +REVOKED +MVR_PTS +JOB +YOJ +CLM_FREQ +HOME_VAL +URBANICITY +PARENT1 +MSTATUS +TRAVTIME +BLUEBOOK, data = InsTrain)
 summary(lm2)
+par(mfrow = c(2,2))
+plot(lm2)
 ```
 
 This model shows an adj $R^2$ as 0.056, and F-statistic of 22.86 with a small p-value.
@@ -557,6 +561,8 @@ Using the reduced predictors, let's now do a stepwise regression:
 ```{r echo=FALSE,message=FALSE,warning=FALSE}
 lm3 <- step(lm2)
 summary(lm3)
+par(mfrow = c(2,2))
+plot(lm3)
 ```
 
 This model shows an adj $R^2$ as 0.055, and F-statistic of 32.86 with a small p-value. As expected this model isn't any better than the first one. It is simpler, but its performance is basically the same. What we do notice, and very visible in the Q-Q plot, is that these seem to be a high number of data points distance from the normal. This suggest a different kind of model.
@@ -569,6 +575,7 @@ We build a Hubber weigthed model to account for the distant points observed in t
 ```{r}
 lm4<-rlm(TARGET_AMT~.-TARGET_FLAG,InsTrain,maxit=40)
 summary(lm4)
+par(mfrow = c(2,2))
 plot(lm4)
 ```
 
@@ -626,6 +633,8 @@ write.csv(eval_p,"predicted_eval_values_Target_Flag.csv")
 # APPENDIX
 
 **Code used in analysis**
+
+https://raw.githubusercontent.com/tmuse987/cuny621-hw4/master/Data621-Group1-HW4-Final.Rmd
 
 knitr::opts_chunk$set(echo = FALSE, warning = FALSE)
 require(knitr)
