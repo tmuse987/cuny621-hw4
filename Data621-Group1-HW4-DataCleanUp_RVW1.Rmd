@@ -38,6 +38,11 @@ InsEval <- read.csv("insurance-evaluation-data.csv",na.strings="",header=TRUE)
 InsEval <- subset(InsEval, select=-c(TARGET_FLAG,TARGET_AMT))
 ```
 
+```{r}
+InsEval <- read.csv("insurance-evaluation-data.csv",na.strings="",header=TRUE)
+```
+
+
 # OVERVIEW
 
 In this homework assignment, you will explore, analyze and model a data set containing approximately 8000 records representing a customer at an auto insurance company. Each record has two response variables. The first response variable, TARGET_FLAG, is a 1 or a 0. A “1” means that the person was in a car crash. A zero means that the person was not in a car crash. The second response variable is TARGET_AMT. This value is zero if the person did not crash their car. But if they did crash their car, this number will be a value greater than zero representing the cost of the crash.
@@ -533,6 +538,7 @@ m4BIC <- BIC(m4)
 | AIC       | `r m1AIC`   | `r m2AIC`    | `r m3AIC`  | `r m4AIC`  |
 | BIC       | `r m1BIC`   | `r m2BIC`    | `r m3BIC`  | `r m4BIC`  |
 
+With 4 models computed, we select the model with the lowest combination of AIC and BIC. The the table we can see the model to pick is model 3.
 
 ## TARGET_AMT Modeling
 
@@ -542,13 +548,13 @@ Same as with the logistic model before, we start with a model that includes all 
 
 ```{r}
 InsTrain<-InsTrain[ , !(names(InsTrain) %in% c('predicted_m3','target_m4'))]
-lm1<-lm(TARGET_AMT~.,InsTrain)
+lm1<-lm(TARGET_AMT~.-TARGET_FLAG,InsTrain)
 summary(lm1)
 par(mfrow = c(2,2))
 plot(lm1)
 ```
 
-This model shows an adj R2 as 0.28, and F-statistic of 87.86 with a small p-value.
+This model shows an adj R2 as 0.28, and F-statistic of 87.86 with a small p-value. The result is not a very good model showing a very low $R^2$. We also observe several parameters which are not very significant. We try a second model without these parameters, although we do not expect it so be much better that this first model.
 
 **Model 2: reduced predictors**
 
@@ -569,8 +575,69 @@ summary(lm3)
 
 ```
 
-This model shows an adj R2 as 0.055, and F-statistic of 32.86 with a small p-value.
+This model shows an adj R2 as 0.055, and F-statistic of 32.86 with a small p-value. As expected this model isn't any better than the first one. It is simpler, but its performance is basically the same. What we do notice, and very visible in the Q-Q plot, is that these seem to be a high number of data points distance from the normal. This suggest a different kind of model.
+
+**Model 4: weighted coefficients**
+
+We build a Hubber weigthed model to account for the distant points observed in the previous models.
+
+```{r}
+lm4<-rlm(TARGET_AMT~.-TARGET_FLAG,InsTrain,maxit=40)
+summary(lm4)
+plot(lm4)
+```
+
+The models doesnt seem to help with weigthed coefficients, we stil see the effects of several datapoints in the data.
+
+### Pick the best regression model
+
+```{r echo=FALSE,message=FALSE,warning=FALSE}
+lm1AIC <- AIC(lm1)
+lm1BIC <- BIC(lm1)
+lm2AIC <- AIC(lm2)
+lm2BIC <- BIC(lm2)
+lm3AIC <- AIC(lm3)
+lm3BIC <- BIC(lm3)
+lm4AIC <- AIC(lm4)
+lm4BIC <- BIC(lm4)
+```
+| Metric    | Model 1     | Model 2      | Model 3    | Model 4    |
+| --------- | ----------- | -----------  | ---------- | ---------- |
+| AIC       | `r lm1AIC`   | `r lm2AIC`    | `r lm3AIC`  | `r lm4AIC`  |
+| BIC       | `r lm1BIC`   | `r lm2BIC`    | `r lm3BIC`  | `r lm4BIC`  |
+
+With 4 models computed, we select the model with the lowest combination of AIC and BIC. The the table we can see the model to pick is model 3.
 
 ## Conclusion
+
+For both the logistic regression and linear regressions we picked model 3. Results for the logistic regression were rather good, but the linear regression doesn't seem to be a good model, even when using weigthed coefficients. 
+
+```{r echo = FALSE, message=FALSE}
+# TJ
+c<-c('INCOME','HOME_VAL','BLUEBOOK','OLDCLAIM')
+
+if(c %in% colnames(InsEval)){
+  
+  glimpse(InsEval[,(c)])
+  InsEval[,c] <- sapply(InsEval[,(c)], 
+                         function(x) as.integer(gsub('[$,]','',as.character(x))))
+  
+  glimpse(InsEval[,(c)])
+  
+} else {
+  
+  cat("Please review your selection of columns:", c)
+  
+}
+
+eval_plm<-predict(lm3,InsEval)
+write.csv(eval_plm,"predicted_eval_values_Target_Amt.csv")
+```
+
+```{r echo = FALSE, message=FALSE}
+eval_p<-predict(m3,InsEval, type = "response")
+write.csv(eval_p,"predicted_eval_values_Target_Flag.csv")
+```
+
 
 # APPENDIX
