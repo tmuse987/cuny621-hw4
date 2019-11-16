@@ -268,9 +268,10 @@ plot(regfit.full, scale="bic", main="Predictors vs. BIC", asp = 10)
 The plot on the right shows that the number of predictors with the lowest BIC are `PARENT` , `HOMEVAL`, `CAR_USE`, 'CAR_TYPE', 'REVOKED', 'MVR_PTS', 'CAR_AGE' and 'URBANICITY'. We will use those predictors to build the next model
 
 ```{r echo=FALSE,message=FALSE,warning=FALSE}
-m4 <- glm(TARGET_FLAG ~ PARENT1 + HOME_VAL + CAR_USE + CAR_TYPE + REVOKED + MVR_PTS + URBANICITY + CAR_AGE, family=binomial, data = InsTrain)
-InsTrain$predicted_m3<- predict(m4, InsTrain, type='response')
-InsTrain$target_m4$target <- ifelse(InsTrain$predicted_m4>0.5, 1, 0)
+InsTrains <-subset(InsTrain, PARENT1='YES',CAR_TYPE %in% c('Panel Truck','Minivan','Pickup','Sports Car','Van','z_SUV'), REVOKED = 'YES', CAR_USE = 'Private')
+m4 <- glm(TARGET_FLAG ~ PARENT1 + HOME_VAL + CAR_USE + CAR_TYPE + REVOKED + MVR_PTS + URBANICITY + CAR_AGE, family=binomial, data = InsTrains)
+InsTrains$predicted_m3<- predict(m4, InsTrains, type='response')
+InsTrains$target_m4$target <- ifelse(InsTrains$predicted_m4>0.5, 1, 0)
 pander::pander(summary(m4))
 ```
 
@@ -308,6 +309,7 @@ grpIns <- group_by(InsMut, cut(linPred, breaks=unique(quantile(linPred, (0:25/26
 diagIns <- summarise(grpIns, Residuals = mean(Residuals), linPred = mean(linPred))
 plot(Residuals ~ linPred, data = diagIns, xlab="Linear Predictor")
 abline(h = 0, lty = 2, col = "darkorange", lwd = 2)
+abline(lm(Residuals ~ linPred, data = diagIns))
 ```
 
 **Plot leverages.**
@@ -366,6 +368,7 @@ grpIns <- group_by(InsMut, cut(linPred, breaks=unique(quantile(linPred, (0:25/26
 diagIns <- summarise(grpIns, Residuals = mean(Residuals), linPred = mean(linPred))
 plot(Residuals ~ linPred, data = diagIns, xlab="Linear Predictor")
 abline(h = 0, lty = 2, col = "darkorange", lwd = 2)
+abline(lm(Residuals ~ linPred, data = diagIns))
 ```
 
 **Plot leverages.**
@@ -424,6 +427,7 @@ grpIns <- group_by(InsMut, cut(linPred, breaks=unique(quantile(linPred, (0:25/26
 diagIns <- summarise(grpIns, Residuals = mean(Residuals), linPred = mean(linPred))
 plot(Residuals ~ linPred, data = diagIns, xlab="Linear Predictor")
 abline(h = 0, lty = 2, col = "darkorange", lwd = 2)
+abline(lm(Residuals ~ linPred, data = diagIns))
 ```
 
 **Plot leverages.**
@@ -459,7 +463,7 @@ The ROC Curve helps measure true positives and true negative. A high AUC or area
 
 ```{r echo=FALSE,message=FALSE,warning=FALSE}
 targethat<-predict(m4,type="response")
-g<-roc(TARGET_FLAG~targethat,data=InsTrain)
+g<-roc(TARGET_FLAG~targethat,data=InsTrains)
 plot(g)
 ```
  
@@ -470,18 +474,19 @@ The AUC value of `r round(g$auc,2)`, tells us this model predicted values are ac
 ```{r echo=FALSE,message=FALSE,warning=FALSE}
 targethat[targethat<0.5]<-0
 targethat[targethat>=0.5]<-1
-table(targethat,InsTrain$TARGET_FLAG)
+table(targethat,InsTrains$TARGET_FLAG)
 ```
 
 **Create a binned diagnostic plot of residuals vs prediction**
 There are definite patterns here, which bear investigating.
 
 ```{r echo=FALSE,message=FALSE,warning=FALSE}
-InsMut <- mutate(InsTrain, Residuals = residuals(m4), linPred = predict(m4))
+InsMut <- mutate(InsTrains, Residuals = residuals(m4), linPred = predict(m4))
 grpIns <- group_by(InsMut, cut(linPred, breaks=unique(quantile(linPred, (0:25/26)))))
 diagIns <- summarise(grpIns, Residuals = mean(Residuals), linPred = mean(linPred))
 plot(Residuals ~ linPred, data = diagIns, xlab="Linear Predictor")
 abline(h = 0, lty = 2, col = "darkorange", lwd = 2)
+abline(lm(Residuals ~ linPred, data = diagIns))
 ```
 
 **Plot leverages.**
@@ -496,7 +501,7 @@ We don't see any strong outliers with the leverage plot.  The points identified 
 
 ```{r echo=FALSE,message=FALSE,warning=FALSE}
 linPred <- predict(m4)
-InsMut <- mutate(InsTrain, predProb = predict(m4, type = "response"))
+InsMut <- mutate(InsTrains, predProb = predict(m4, type = "response"))
 grpIns <- group_by(InsMut, cut(linPred, breaks = unique(quantile(linPred, (0:25)/26))))
 #hosmer-lemeshow stat
 hlDf <- summarise(grpIns, y= sum(TARGET_FLAG), pPred=mean(predProb), count = n())
@@ -604,7 +609,7 @@ With 4 models computed, we select the model with the lowest combination of AIC a
 
 For both the logistic regression and linear regressions we picked model 3. Results for the logistic regression were rather good, but the linear regression doesn't seem to be a good model, even when using weigthed coefficients. 
 
-```{r echo = FALSE, message=FALSE}
+```{r message=FALSE, include=FALSE}
 # TJ
 c<-c('INCOME','HOME_VAL','BLUEBOOK','OLDCLAIM')
 if(c %in% colnames(InsEval)){
