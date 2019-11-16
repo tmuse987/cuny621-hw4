@@ -268,7 +268,7 @@ plot(regfit.full, scale="bic", main="Predictors vs. BIC", asp = 10)
 The plot on the right shows that the number of predictors with the lowest BIC are `PARENT` , `HOMEVAL`, `CAR_USE`, 'CAR_TYPE', 'REVOKED', 'MVR_PTS', 'CAR_AGE' and 'URBANICITY'. We will use those predictors to build the next model
 
 ```{r echo=FALSE,message=FALSE,warning=FALSE}
-InsTrains <-subset(InsTrain, PARENT1='YES',CAR_TYPE %in% c('Panel Truck','Minivan','Pickup','Sports Car','Van','z_SUV'), REVOKED = 'YES', CAR_USE = 'Private')
+InsTrains <-subset(InsTrain, PARENT1='YES',CAR_TYPE %in% c('Minivan','Pickup','Sports Car','Van','z_SUV'), REVOKED = 'YES', CAR_USE = 'Private')
 m4 <- glm(TARGET_FLAG ~ PARENT1 + HOME_VAL + CAR_USE + CAR_TYPE + REVOKED + MVR_PTS + URBANICITY + CAR_AGE, family=binomial, data = InsTrains)
 InsTrains$predicted_m3<- predict(m4, InsTrains, type='response')
 InsTrains$target_m4$target <- ifelse(InsTrains$predicted_m4>0.5, 1, 0)
