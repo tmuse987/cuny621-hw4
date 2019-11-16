@@ -4,8 +4,8 @@ author: Tommy Jenkins, Violeta Stoyanova, Todd Weigel, Peter Kowalchuk, Eleanor 
   Anthony Pagan
 date: "November 15, 2019"
 output:
-  word_document: default
   pdf_document: default
+  word_document: default
   html_document:
     number_sections: yes
     theme: paper
@@ -131,12 +131,11 @@ A glimpse of the data shows that the following columns should be integers and no
 We display and view data with all cases and only complete cases
 
 ```{r echo=FALSE, message=FALSE, warning=FALSE}
-#TJ
 cat(colnames(InsTrain[ sapply(InsTrain, is.factor)]), "\n\n")
 glimpse(InsTrain)
 ```
 
-We use Sapply function to review which columns have NA Values. It display columns and percent of values that are missing.  
+We use sapply function to review which columns have NA Values. It display columns and percent of values that are missing.  
 
 ```{r}
 sapply(InsTrain, function(x) round(sum(is.na(x))/nrow(InsTrain)*100,1))
@@ -147,7 +146,6 @@ sapply(InsTrain, function(x) round(sum(is.na(x))/nrow(InsTrain)*100,1))
 As revealed earlier there were a list of columns that we factors that should be integers. We start by converting the columns to numeric.
 
 ```{r}
-# TJ
 c<-c('INCOME','HOME_VAL','BLUEBOOK','OLDCLAIM')
 if(c %in% colnames(InsTrain)){
   
@@ -167,11 +165,7 @@ if(c %in% colnames(InsTrain)){
 Both boxplot and summary stats with the square root transform of Home_val and Income to confirm we can use median or mean values to replace NA values if we chose.
 
 ```{r}
-#TJ
-# TODO Analysis on how many 0s
-# FINAL LIST: AGE YOJ INCOME HOME_VAL CAR_AGE
-# JOB is char
-# INCOME AND HOME_VAL have 0's, impossible so convert to NA
+# AGE YOJ INCOME HOME_VAL CAR_AGE
 InsTrain$INCOME <- na_if(InsTrain$INCOME, 0)
 InsTrain$HOME_VAL <- na_if(InsTrain$HOME_VAL, 0)
 r <- colnames(InsTrain[ sapply(InsTrain, function(x) return(anyNA(x) && is.integer(x)))])
@@ -179,22 +173,20 @@ boxplot(InsTrain[,r],names = r,las = 2,col = c("orange","red", "blue", "yellow",
 describe(subset(InsTrain, select =r))
 ```
 
-We next replace all NA values with mean values for cases that are missing values and rerun sapply function to confirm there are no longer any missing values.
+We next replace all NA values with mean values for cases that are missing values, we impute the JOBs variable for now (although we will reconsider whether omitting these rows is better) and rerun sapply function to confirm there are no longer any missing values.
 
 
 ```{r}
 sapply(InsTrain, function(x) round(sum(is.na(x))/nrow(InsTrain)*100,1))
-#TJ
 InsTrain[,r] <- replace_na(InsTrain[,r], as.list(colMeans(InsTrain[,r], na.rm = TRUE)))
-#TJ jobs should be analyzed more before imputing
+
+# Jobs could be analyzed more before imputing
 Jobs <- summary(InsTrain$JOB)
-print(Jobs)
 JobsMode <- Jobs[which.max(Jobs)] 
-ifelse(JobsMode[[1]]  / nrow(InsTrain) > 2.5*(Jobs["NA's"][[1]] / nrow(InsTrain)), 
-       InsTrain$JOB <- replace_na(InsTrain$JOB, names(JobsMode)),
-       na.omit(InsTrain)
-       )
-summary(InsTrain$JOB)
+# ifelse(JobsMode[[1]]  / nrow(InsTrain) > 2.5*(Jobs["NA's"][[1]] / nrow(InsTrain)), 
+InsTrain$JOB <- replace_na(InsTrain$JOB, names(JobsMode))#,
+#na.omit(InsTrain)
+#summary(InsTrain$JOB)
 ```
 
 
@@ -212,11 +204,11 @@ Modeling design will be divided in two phases. First we will design a model to p
 
 ## TARGET_FLAG Modeling
 
-This response variable being binary, o or 1, we will be looking at logistic regression models to find a good fit. We will start with a naive model with all the predictors included as a baseline. First approach will be to simply the model by reducing the predictors used. We will look at several model metrics such as AIC, BIC. We will also include confusion tables and ROC plot to better understand each model.
+This response variable being binary, 0 or 1, we will be looking at logistic regression models to find a good fit. We will start with a naive model with all the predictors included as a baseline. First approach will be to simply the model by reducing the predictors used. We will look at several model metrics such as AIC, BIC. We will also include confusion tables and ROC plot to better understand each model.
 
 **Model 1: all predictors**
 
-We start out with a straightforward logit logistical regression with all predictors included. As a note, we need to make sure we do not include the TARGET_AMT responce variable in our model as a predictor.
+We start out with a straightforward logit logistical regression with all predictors included. As a note, we need to make sure we do not include the TARGET_AMT response variable in our model as a predictor.
 
 ```{r}
 m1<-glm(TARGET_FLAG~.-INDEX-TARGET_AMT,data=InsTrain,family="binomial"(link="logit"))
@@ -245,7 +237,7 @@ summary(m3)
 
 This reduces the predictors used to 25 from 30. The AIC is reduced from 7401.13 (our original general model) to 7393.7, just slightly and but we benefit by having a simpler model less prone to overfitting.
 
-Also, the predictors in the model now are all signficant (under 0.05 pr level) and all but one under .02 or very significant. Which is much improved over the first model.
+Also, the predictors in the model now are all significant (under 0.05 pr level) and all but one under .02 or very significant. Which is much improved over the first model.
 
 ### BIC Method  Model 4
 
@@ -349,7 +341,7 @@ g<-roc(TARGET_FLAG~targethat,data=InsTrain)
 plot(g)
 ```
  
-The AUC value of `r round(g$auc,2)`, tells us this model predicted values are acurate.
+The AUC value of `r round(g$auc,2)`, tells us this model predicted values are curate.
 
 **Confusion Matrix**
 
@@ -396,7 +388,7 @@ ggplot(hlDf,aes(x=pPred,y=y/count,ymin=y/count-2*se.fit,ymax=y/count+2*se.fit)) 
 
 We see that our predictors fall close to the line. 
 
-### Model 3 - Srep AIC Model
+### Model 3 - Step AIC Model
 
 **ROC Curve**
 
@@ -455,7 +447,7 @@ ggplot(hlDf,aes(x=pPred,y=y/count,ymin=y/count-2*se.fit,ymax=y/count+2*se.fit)) 
 
 We see that our predictors fall close to the line. 
 
-### Model 4 - Srep BIC Model
+### Model 4 - Rep BIC Model
 
 **ROC Curve**
 
@@ -575,7 +567,7 @@ This model shows an adj $R^2$ as 0.055, and F-statistic of 32.86 with a small p-
 
 **Model 4: Weighted coefficients**
 
-We build a Hubber weigthed model to account for the distant points observed in the previous models.
+We build a Hubber weighted model to account for the distant points observed in the previous models.
 
 ```{r}
 lm4<-rlm(TARGET_AMT~.-TARGET_FLAG,InsTrain,maxit=40)
@@ -584,7 +576,7 @@ par(mfrow = c(2,2))
 plot(lm4)
 ```
 
-The models doesn't seem to help with weigthed coefficients, we stil see the effects of several datapoints in the data.
+The models doesn't seem to help with weighted coefficients, we still see the effects of several datapoints in the data.
 
 ### Pick the best regression model
 
@@ -607,7 +599,7 @@ With 4 models computed, we select the model with the lowest combination of AIC a
 
 ## Conclusion
 
-For both the logistic regression and linear regressions we picked model 3. Results for the logistic regression were rather good, but the linear regression doesn't seem to be a good model, even when using weigthed coefficients. 
+For both the logistic regression and linear regressions we picked model 3. Results for the logistic regression were rather good, but the linear regression doesn't seem to be a good model, even when using weighted coefficients. 
 
 ```{r message=FALSE, include=FALSE}
 # TJ
